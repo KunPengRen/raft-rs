@@ -128,7 +128,7 @@ impl Mailbox {
             let mut sender = self.sender.clone();
             sender.try_send(proposal)
                 .map_err(|e| Error::SendError(e.to_string()))?;
-            let reply = timeout(Duration::from_secs(3), rx).await; //@TODO configurable
+            let reply = timeout(Duration::from_secs(30), rx).await; //@TODO configurable
             let reply = reply.map_err(|e| Error::RecvError(e.to_string()))?
                 .map_err(|e| Error::RecvError(e.to_string()))?;
             match reply {
