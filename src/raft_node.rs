@@ -27,7 +27,7 @@ use crate::raft_service::raft_service_client::RaftServiceClient;
 use crate::storage::{LogStore, MemStorage};
 
 pub type RaftGrpcClient = RaftServiceClient<tonic::transport::channel::Channel>;
-
+const PEER_TIMEOUT:u64 =5;
 struct MessageSender {
     message: RaftMessage,
     client: Peer,
@@ -157,7 +157,7 @@ pub struct Peer {
 impl Peer {
     pub fn new(addr: String) -> Peer {
         debug!("connecting to node at {}...", addr);
-        let crw_timeout = Duration::from_secs(5); //@TODO configurable
+        let crw_timeout = Duration::from_secs(PEER_TIMEOUT*10); //@TODO configurable
         let max_concurrency = 200;
         Peer {
             addr,
@@ -258,7 +258,7 @@ impl Peer {
         }
 
         let result = tokio::time::timeout(
-            Duration::from_secs(15),  //@TODO configurable
+            Duration::from_secs(PEER_TIMEOUT*30),  //@TODO configurable
             task(c, msg),
         ).await;
         let result = result.map_err(|_| Error::Elapsed)??;
@@ -589,7 +589,7 @@ impl<S: Store + 'static> RaftNode<S> {
             query,
             client: peer,
             chan,
-            timeout: Duration::from_millis(1000),
+            timeout: Duration::from_millis(20000),//mult*20
             max_retries: 0,
         };
         tokio::spawn(query_sender.send());
@@ -830,7 +830,7 @@ impl<S: Store + 'static> RaftNode<S> {
                 client_id,
                 chan: self.snd.clone(),
                 max_retries: 5,
-                timeout: Duration::from_millis(300),
+                timeout: Duration::from_millis(6000),//mult20
             };
             // if let Err(e) = self.msg_tx.try_send(message_sender) {
             //     log::warn!("msg_tx.try_send, error: {:?}", e.to_string());

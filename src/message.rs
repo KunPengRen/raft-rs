@@ -168,7 +168,7 @@ async fn test_merger() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let rx = add(&mut merger);
         let count1 = count.clone();
         let fut = async move {
-            let r = tokio::time::timeout(Duration::from_secs(3), rx).await;
+            let r = tokio::time::timeout(Duration::from_secs(30), rx).await;//kp: multi 30
             match r {
                 Ok(_) => {}
                 Err(_) => {

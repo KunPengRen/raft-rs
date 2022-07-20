@@ -16,7 +16,7 @@ use crate::raft_service::{
     self, ConfChange as RiteraftConfChange, Empty, Message as RiteraftMessage,
 };
 use crate::raft_service::raft_service_server::{RaftService, RaftServiceServer};
-
+const RAFT_TIMEOUT:u64 = 3;
 pub struct RaftServer {
     snd: mpsc::Sender<Message>,
     addr: SocketAddr,
@@ -51,7 +51,7 @@ impl RaftService for RaftServer {
         let (tx, rx) = oneshot::channel();
         let _ = sender.send(Message::RequestId { chan: tx }).await;
         //let response = rx.await;
-        let reply = timeout(Duration::from_secs(3), rx).await  //@TODO configurable
+        let reply = timeout(Duration::from_secs(RAFT_TIMEOUT*10), rx).await  //@TODO configurable
             .map_err(|_e| Status::unavailable("recv timeout for reply"))?
             .map_err(|_e| Status::unavailable("recv canceled for reply"))?;
         match reply {
@@ -97,7 +97,7 @@ impl RaftService for RaftServer {
         let mut reply = raft_service::RaftResponse::default();
 
         // if we don't receive a response after 3secs, we timeout
-        match timeout(Duration::from_secs(3), rx).await {
+        match timeout(Duration::from_secs(RAFT_TIMEOUT *10), rx).await {
             Ok(Ok(raft_response)) => {
                 reply.inner = serialize(&raft_response).expect("serialize error");
             }
@@ -145,7 +145,7 @@ impl RaftService for RaftServer {
 
         let reply = match sender.try_send(message) {
             Ok(()) => {
-                let reply = match timeout(Duration::from_secs(3), rx).await { //@TODO configurable
+                let reply = match timeout(Duration::from_secs(RAFT_TIMEOUT*10), rx).await { //@TODO configurable
                     Ok(Ok(raft_response)) => {
                         match serialize(&raft_response) {
                             Ok(resp) => {
@@ -192,7 +192,7 @@ impl RaftService for RaftServer {
         match sender.try_send(message) {
             Ok(()) => {
                 // if we don't receive a response after 2secs, we timeout
-                match timeout(Duration::from_secs(3), rx).await {
+                match timeout(Duration::from_secs(RAFT_TIMEOUT*10), rx).await {
                     Ok(Ok(raft_response)) => {
                         reply.inner = serialize(&raft_response).expect("serialize error");
                     }
