@@ -497,7 +497,7 @@ impl<S: Store + 'static> RaftNode<S> {
             id,
             election_tick,
             heartbeat_tick,
-            check_quorum: true,
+            check_quorum: false,
             pre_vote: true,
             ..Default::default()
         }
