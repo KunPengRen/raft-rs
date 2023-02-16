@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicIsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -16,12 +16,12 @@ use crate::error::{Error, Result};
 use crate::message::{Message, RaftResponse, Status};
 use crate::raft_node::{Peer, RaftNode};
 use crate::raft_server::RaftServer;
-use crate::raft_service::{ConfChange as RiteraftConfChange, Empty, ResultCode};
 use crate::raft_service::raft_service_client::RaftServiceClient;
+use crate::raft_service::{ConfChange as RiteraftConfChange, Empty, ResultCode};
 
 type DashMap<K, V> = dashmap::DashMap<K, V, ahash::RandomState>;
-const RAFT_TIMEOUT:u64 = 30;
-const Send_TIMEOUT:u64 = 5;
+const RAFT_TIMEOUT: u64 = 30;
+const Send_TIMEOUT: u64 = 5;
 
 #[async_trait]
 pub trait Store {
@@ -36,20 +36,15 @@ struct ProposalSender {
     client: Peer,
 }
 
-
 impl ProposalSender {
     async fn send(self) -> Result<RaftResponse> {
         match self.client.send_proposal(self.proposal).await {
             Ok(reply) => {
-                let raft_response: RaftResponse =
-                    deserialize(&reply)?;
+                let raft_response: RaftResponse = deserialize(&reply)?;
                 Ok(raft_response)
             }
             Err(e) => {
-                warn!(
-                    "error sending proposal {:?}",
-                    e
-                );
+                warn!("error sending proposal {:?}", e);
                 Err(e)
             }
         }
@@ -79,18 +74,18 @@ pub fn active_mailbox_querys() -> isize {
 impl Mailbox {
     #[inline]
     pub fn pears(&self) -> Vec<(u64, Peer)> {
-        self
-            .peers
-            .iter().map(|p| {
-            let (id, _) = p.key();
-            (*id, p.value().clone())
-        }).collect::<Vec<_>>()
+        self.peers
+            .iter()
+            .map(|p| {
+                let (id, _) = p.key();
+                (*id, p.value().clone())
+            })
+            .collect::<Vec<_>>()
     }
 
     #[inline]
     async fn peer(&self, leader_id: u64, leader_addr: String) -> Peer {
-        self
-            .peers
+        self.peers
             .entry((leader_id, leader_addr.clone()))
             .or_insert_with(|| Peer::new(leader_addr))
             .clone()
@@ -128,16 +123,19 @@ impl Mailbox {
                 chan: tx,
             };
             let mut sender = self.sender.clone();
-            sender.try_send(proposal)
+            sender
+                .try_send(proposal)
                 .map_err(|e| Error::SendError(e.to_string()))?;
-            let reply = timeout(Duration::from_secs(RAFT_TIMEOUT*5), rx).await; //@TODO configurable
-            let reply = reply.map_err(|e| Error::RecvError(e.to_string()))?
+            let reply = timeout(Duration::from_secs(RAFT_TIMEOUT * 5), rx).await; //@TODO configurable
+            let reply = reply
+                .map_err(|e| Error::RecvError(e.to_string()))?
                 .map_err(|e| Error::RecvError(e.to_string()))?;
             match reply {
                 RaftResponse::Response { data } => return Ok(data),
-                RaftResponse::WrongLeader { leader_id, leader_addr } => {
-                    (leader_id, leader_addr)
-                }
+                RaftResponse::WrongLeader {
+                    leader_id,
+                    leader_addr,
+                } => (leader_id, leader_addr),
                 RaftResponse::Error(e) => return Err(Error::from(e)),
                 _ => {
                     warn!("Recv other raft response: {:?}", reply);
@@ -153,18 +151,30 @@ impl Mailbox {
 
         if let Some(leader_addr) = leader_addr {
             if leader_id != 0 {
-                return match self.send_to_leader(message, leader_id, leader_addr.clone()).await?{
+                return match self
+                    .send_to_leader(message, leader_id, leader_addr.clone())
+                    .await?
+                {
                     RaftResponse::Response { data } => Ok(data),
-                    RaftResponse::WrongLeader { leader_id, leader_addr } => {
-                        warn!("The target node is not the Leader, leader_id: {}, leader_addr: {:?}", leader_id, leader_addr);
+                    RaftResponse::WrongLeader {
+                        leader_id,
+                        leader_addr,
+                    } => {
+                        warn!(
+                            "The target node is not the Leader, leader_id: {}, leader_addr: {:?}",
+                            leader_id, leader_addr
+                        );
                         Err(Error::NotLeader)
-                    },
+                    }
                     RaftResponse::Error(e) => Err(Error::from(e)),
                     _ => {
-                        warn!("Recv other raft response, leader_id: {}, leader_addr: {:?}", leader_id, leader_addr);
+                        warn!(
+                            "Recv other raft response, leader_id: {}, leader_addr: {:?}",
+                            leader_id, leader_addr
+                        );
                         Err(Error::Unknown)
                     }
-                }
+                };
             }
         }
 
@@ -184,7 +194,8 @@ impl Mailbox {
         let (tx, rx) = oneshot::channel();
         let mut sender = self.sender.clone();
         match sender.try_send(Message::Query { query, chan: tx }) {
-            Ok(()) => match timeout(Duration::from_secs(Send_TIMEOUT*10), rx).await { //@TODO configurable
+            Ok(()) => match timeout(Duration::from_secs(Send_TIMEOUT * 10), rx).await {
+                //@TODO configurable
                 Ok(Ok(RaftResponse::Response { data })) => Ok(data),
                 Ok(Ok(RaftResponse::Error(e))) => Err(Error::from(e)),
                 _ => Err(Error::Unknown),
@@ -216,7 +227,8 @@ impl Mailbox {
         let (tx, rx) = oneshot::channel();
         let mut sender = self.sender.clone();
         match sender.send(Message::Status { chan: tx }).await {
-            Ok(_) => match timeout(Duration::from_secs(Send_TIMEOUT*10), rx).await {  //@TODO configurable
+            Ok(_) => match timeout(Duration::from_secs(Send_TIMEOUT * 10), rx).await {
+                //@TODO configurable
                 Ok(Ok(RaftResponse::Status(status))) => Ok(status),
                 Ok(Ok(RaftResponse::Error(e))) => Err(Error::from(e)),
                 _ => Err(Error::Unknown),
