@@ -356,7 +356,7 @@ impl<S: Store + 'static> RaftNode<S> {
         store: S,
         logger: &slog::Logger,
     ) -> Self {
-        let config = Self::new_config(id, 100, 10); //@TODO configurable
+        let config = Self::new_config(id, 200, 20); //@TODO configurable
 
         config.validate().unwrap();
 
@@ -401,7 +401,7 @@ impl<S: Store + 'static> RaftNode<S> {
         store: S,
         logger: &slog::Logger,
     ) -> Result<Self> {
-        let config = Self::new_config(id, 100, 10);
+        let config = Self::new_config(id, 200, 20);
 
         config.validate().unwrap();
 
