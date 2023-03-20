@@ -401,7 +401,7 @@ impl<S: Store + 'static> RaftNode<S> {
         store: S,
         logger: &slog::Logger,
     ) -> Result<Self> {
-        let config = Self::new_config(id, 200, 20);
+        let config = Self::new_config(id, 2000, 200);
 
         config.validate().unwrap();
 
