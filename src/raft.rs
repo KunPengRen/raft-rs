@@ -115,6 +115,58 @@ impl Mailbox {
     }
 
     #[inline]
+    pub async fn send_leader(
+        &self,
+        message: Vec<u8>,
+        leader_id: u64,
+        leader_addr: String,
+    ) -> Result<Vec<u8>> {
+        MAILBOX_SENDS.fetch_add(1, Ordering::SeqCst);
+        let reply = self
+            ._send_leader(message, leader_id, leader_addr.clone())
+            .await;
+        MAILBOX_SENDS.fetch_sub(1, Ordering::SeqCst);
+        reply
+    }
+    #[inline]
+    async fn _send_leader(
+        &self,
+        message: Vec<u8>,
+        leader_id: u64,
+        leader_addr: String,
+    ) -> Result<Vec<u8>> {
+        if !leader_addr.is_empty() {
+            if leader_id != 0 {
+                return match self
+                    .send_to_leader(message, leader_id, leader_addr.clone())
+                    .await?
+                {
+                    RaftResponse::Response { data } => Ok(data),
+                    RaftResponse::WrongLeader {
+                        leader_id,
+                        leader_addr,
+                    } => {
+                        warn!(
+                            "The target node is not the Leader, leader_id: {}, leader_addr: {:?}",
+                            leader_id, leader_addr
+                        );
+                        Err(Error::NotLeader)
+                    }
+                    RaftResponse::Error(e) => Err(Error::from(e)),
+                    _ => {
+                        warn!(
+                            "Recv other raft response, leader_id: {}, leader_addr: {:?}",
+                            leader_id, leader_addr
+                        );
+                        Err(Error::Unknown)
+                    }
+                };
+            }
+        }
+
+        Err(Error::LeaderNotExist)
+    }
+    #[inline]
     async fn _send(&self, message: Vec<u8>) -> Result<Vec<u8>> {
         let (leader_id, leader_addr) = {
             let (tx, rx) = oneshot::channel();
