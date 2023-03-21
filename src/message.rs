@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-use std::time::Instant;
 use futures::channel::oneshot::Sender;
 use raft::eraftpb::{ConfChange, Message as RaftMessage};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::Instant;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum RaftResponse {
@@ -86,13 +86,11 @@ pub(crate) enum Proposals {
     More(Vec<Vec<u8>>),
 }
 
-
 pub(crate) struct Merger {
     proposals: Vec<Vec<u8>>,
     chans: Vec<(Sender<RaftResponse>, Instant)>,
     start_collection_time: i64,
 }
-
 
 impl Merger {
     pub fn new() -> Self {
@@ -116,7 +114,7 @@ impl Merger {
 
     #[inline]
     pub fn take(&mut self) -> Option<(Proposals, ReplyChan)> {
-        let max = 50; //@TODO configurable, 50
+        let max = 500; //@TODO configurable, 50
         let len = self.len();
         let len = if len > max { max } else { len };
         if len > 0 && (len == max || self.timeout()) {
@@ -125,7 +123,7 @@ impl Merger {
                     (Some(proposal), Some(chan)) => {
                         Some((Proposals::One(proposal), ReplyChan::One(chan)))
                     }
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
             } else {
                 let mut proposals = self.proposals.drain(0..len).collect::<Vec<_>>();
@@ -143,15 +141,16 @@ impl Merger {
 
     #[inline]
     fn timeout(&self) -> bool {
-        chrono::Local::now().timestamp_millis() > (self.start_collection_time + 200)  //@TODO configurable, 200 millisecond
+        chrono::Local::now().timestamp_millis() > (self.start_collection_time + 200)
+        //@TODO configurable, 200 millisecond
     }
 }
 
 #[tokio::test]
 async fn test_merger() -> std::result::Result<(), Box<dyn std::error::Error>> {
     let mut merger = Merger::new();
-    use std::time::Duration;
     use futures::channel::oneshot::channel;
+    use std::time::Duration;
 
     let add = |merger: &mut Merger| {
         let (tx, rx) = channel();
@@ -159,8 +158,8 @@ async fn test_merger() -> std::result::Result<(), Box<dyn std::error::Error>> {
         rx
     };
 
-    use std::sync::Arc;
     use std::sync::atomic::{AtomicI64, Ordering};
+    use std::sync::Arc;
     const MAX: i64 = 111;
     let count = Arc::new(AtomicI64::new(0));
     let mut futs = Vec::new();
@@ -168,7 +167,7 @@ async fn test_merger() -> std::result::Result<(), Box<dyn std::error::Error>> {
         let rx = add(&mut merger);
         let count1 = count.clone();
         let fut = async move {
-            let r = tokio::time::timeout(Duration::from_secs(30), rx).await;//kp: multi 30
+            let r = tokio::time::timeout(Duration::from_secs(30), rx).await; //kp: multi 30
             match r {
                 Ok(_) => {}
                 Err(_) => {
