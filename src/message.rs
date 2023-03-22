@@ -114,7 +114,7 @@ impl Merger {
 
     #[inline]
     pub fn take(&mut self) -> Option<(Proposals, ReplyChan)> {
-        let max = 8; //@TODO configurable, 50
+        let max = 32; //@TODO configurable, 50
         let len = self.len();
         let len = if len > max { max } else { len };
         if len > 0 && (len == max || self.timeout()) {
